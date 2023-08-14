@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Test3;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,22 +8,76 @@ namespace GameMain
 {
     public class PlayerAttackSceneMain : MonoBehaviour
     {
-
         [SerializeField]
-        private Button btnAttack;
+        private Button btnRemoveSword;
         [SerializeField]
+        private Button equipSword;
+        [SerializeField]
+        private Button btnRemoveShield;
+        [SerializeField]
+        private Button equipShield;
+        [SerializeField]
+        private GameObject swordPrefab;
+        [SerializeField]
+        private GameObject shieldPrefab;
+        [SerializeField]
+        private GameObject hero;
         private HeroController heroController;
         [SerializeField]
-        private MonsterController monsterController;
+        private MonsterGenerator monsterGenerator;
+        private List<MonsterController> monsterList;
         [SerializeField]
         private GameObject hitFxPrefab;
+        private List<ItemController> itemList;
         [SerializeField]
-        private GameObject grave;
+        private ItemGenerator itemGenerator;
+        [SerializeField]
+        private PortalController portalController;
+        private bool isClear = false;
 
 
         // Start is called before the first frame update
         void Start()
         {
+            this.heroController = CreateHero(new Vector3(-3, 0, -3));
+
+            this.monsterList = new List<MonsterController>();
+            MonsterController turtle = this.monsterGenerator.Generate(GameEnums.eMonsterType.Turtle, new Vector3(0, 0, 3));
+            turtle.onDie = (itemType) =>
+            {
+                this.itemGenerator.Generate(itemType, turtle.transform.position);
+                this.monsterList.Remove(turtle);
+                Destroy(turtle.gameObject);
+            };
+            turtle.onHit = () => {
+                Debug.Log("이펙트 생성");
+                Vector3 offset = new Vector3(0, 0.5f, 0);
+                Vector3 tpos = turtle.transform.position + offset;
+                Debug.LogFormat("생성위치 {0}", tpos);
+                GameObject fxGo = Instantiate(this.hitFxPrefab);
+                fxGo.transform.position = tpos;
+                fxGo.GetComponent<ParticleSystem>().Play();
+            };
+            MonsterController slime = this.monsterGenerator.Generate(GameEnums.eMonsterType.Slime, new Vector3(3, 0, 0));
+            slime.onDie = (itemType) =>
+            {
+                this.itemGenerator.Generate(itemType, slime.transform.position);
+                this.monsterList.Remove(slime);
+                Destroy(slime.gameObject);
+            };
+            slime.onHit = () => {
+                Debug.Log("이펙트 생성");
+                Vector3 offset = new Vector3(0, 0.5f, 0);
+                Vector3 tpos = slime.transform.position + offset;
+                Debug.LogFormat("생성위치 {0}", tpos);
+                GameObject fxGo = Instantiate(this.hitFxPrefab);
+                fxGo.transform.position = tpos;
+                fxGo.GetComponent<ParticleSystem>().Play();
+            };
+
+            this.monsterList.Add(turtle);
+            this.monsterList.Add(slime);
+
             this.heroController.onMoveComplete = (target) =>
             {
                 Debug.LogFormat("<color=cyan>이동을 완료 했습니다. : {0}</color>", target);
@@ -33,38 +88,44 @@ namespace GameMain
                 }
             };
 
-            this.monsterController.onHit = () => {
-                Debug.Log("이펙트 생성");
-                Vector3 offset = new Vector3(0, 0.5f, 0);
-                Vector3 tpos = this.monsterController.transform.position + offset;
-                Debug.LogFormat("생성위치 {0}", tpos);
-                GameObject fxGo = Instantiate(this.hitFxPrefab);
-                fxGo.transform.position = tpos;
-                fxGo.GetComponent<ParticleSystem>().Play();
-            };
-
-            this.monsterController.onDie = () =>
-            {
-                GameObject grave = Instantiate(this.grave);
-                grave.transform.position = monsterController.transform.position;
-
-            };
-
-            this.btnAttack.onClick.AddListener(() => {
-                Vector3 a = heroController.gameObject.transform.position;
-                Vector3 b = monsterController.gameObject.transform.position;
-                Vector3 c = b - a;
-                //시작위치, 방향
-                float distance = c.magnitude;
-                float radius = this.heroController.Radius + this.monsterController.Radius;
-                Debug.LogFormat("radius: {0}", radius);
-                Debug.LogFormat("IsWithinRange: <color=lime>{0}</color>", this.IsWithinRange(distance, radius));
-                if (this.IsWithinRange(distance, radius))
-                {
-                    this.heroController.Attack(this.monsterController);
-                }
-
+            this.btnRemoveSword.onClick.AddListener(() => {
+                Debug.Log("영웅의 칼이 있다면 씬에서 제거");
+                this.heroController.UnEquipWeapon();
             });
+
+            this.btnRemoveShield.onClick.AddListener(() => {
+                Debug.Log("영웅의 칼이 있다면 씬에서 제거");
+                this.heroController.UnEquipShield();
+            });
+
+            this.equipSword.onClick.AddListener(() => {
+                bool hasWeapon = this.heroController.HasWeapon();
+                if (!hasWeapon)
+                {
+                    GameObject go = Instantiate(this.swordPrefab, this.heroController.WeaponTrans);
+                }
+                else
+                {
+                    Debug.Log("이미 착용 중입니다.");
+                }
+            });
+
+            this.equipShield.onClick.AddListener(() => {
+                bool hasWeapon = this.heroController.HasWeapon();
+                if (!hasWeapon)
+                {
+                    GameObject go = Instantiate(this.shieldPrefab, this.heroController.WeaponTrans);
+                }
+                else
+                {
+                    Debug.Log("이미 착용 중입니다.");
+                }
+            });
+
+
+
+
+
         }
 
         private bool IsWithinRange(float distance, float radius)
@@ -110,6 +171,7 @@ namespace GameMain
                         if (distance <= sumRadius)
                         {
                             //공격 
+                            this.heroController.Attack(monsterController);
                         }
                         else
                         {
@@ -125,7 +187,25 @@ namespace GameMain
                     }
                 }
             }
+            if (this.monsterList.Count == 0)
+            {
+                if (isClear == false)
+                {
+                    this.CreatePortal();
+                    isClear = true;
+                }
+            }
+        }
+        public HeroController CreateHero(Vector3 initPosition)
+        {
+            GameObject go = Instantiate(hero);
+            go.transform.position = initPosition;
+            return go.GetComponent<HeroController>();
         }
 
+        public void CreatePortal()
+        {
+            Instantiate(portalController);
+        }
     }
 }

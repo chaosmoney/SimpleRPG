@@ -19,7 +19,9 @@ namespace GameMain
         private Animator anim;
 
         public Action onHit;
-        public Action onDie;
+        [SerializeField]
+        private GameEnums.eItemType itemType;
+        public Action<GameEnums.eItemType> onDie;
         private enum eState
         {
             Idle, Hit, Die
@@ -43,7 +45,7 @@ namespace GameMain
 
             if (this.hp <= 0)
             {
-                this.StartCoroutine(this.WaitForCompleteDieAnimation());
+                this.Die();
             }
             else
             {
@@ -53,18 +55,32 @@ namespace GameMain
             }
         }
 
-        private IEnumerator WaitForCompleteDieAnimation()
+        public void Die()
         {
-            this.anim.SetInteger("State", (int)eState.Die);
-            yield return new WaitForSeconds(1.66f);
-            this.onDie();
-            Destroy(this.gameObject);
+            bool state = false;
+            AnimationClip[] animationClips = anim.runtimeAnimatorController.animationClips;
+            for (int i = 0; i < animationClips.Length; i++)
+            {
+                if (animationClips[i].name == "Die")
+                {
+                    state = true;
+                }
+            }
+            if (state)
+            {
+                StartCoroutine(CoDie());
+            }
+            else
+            {
+                this.onDie(this.itemType);
+            }
 
         }
-        private void OnDrawGizmos()
+        public IEnumerator CoDie()
         {
-            Gizmos.color = Color.yellow;
-            GizmosExtensions.DrawWireArc(this.transform.position, this.transform.forward, 360, this.radius);
+            this.anim.SetInteger("State", 2);
+            yield return new WaitForSeconds(2.5f);
+            this.onDie(this.itemType);
         }
     }
 }

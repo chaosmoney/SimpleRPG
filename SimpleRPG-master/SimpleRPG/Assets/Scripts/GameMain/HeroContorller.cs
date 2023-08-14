@@ -18,10 +18,30 @@ namespace GameMain
         private eState state;
         private float radius = 1f;
         public float impactTime = 0.4f;
-        [SerializeField]
-        private MonsterController monsterController;
+        public bool attacked;
         private Coroutine attackRoutine;
         private int atk = 10;
+        [SerializeField]
+        private Transform weaponTrans;
+        [SerializeField]
+        private Transform shieldTrans;
+
+
+        public Transform WeaponTrans
+        {
+            get
+            {
+                return this.weaponTrans;
+            }
+        }
+
+        public Transform ShieldTrans
+        {
+            get
+            {
+                return this.shieldTrans;
+            }
+        }
         public float Radius
         {
             get { return this.radius; }
@@ -42,6 +62,7 @@ namespace GameMain
 
         public void Move(MonsterController target)
         {
+            Debug.Log("몬스터타겟 무브");
             this.target = target;
             this.targetPosition = this.target.gameObject.transform.position;
             if (this.moveRoutine != null)
@@ -106,11 +127,13 @@ namespace GameMain
             Debug.Log("<color=yellow>도착!</color>");
             this.anim.SetInteger("State", 0);
             //대리자를 호출
+            Debug.Log(this.target);
             this.onMoveComplete(this.target);
         }
 
         public void Attack(MonsterController target)
         {
+            this.target = target;
             this.transform.LookAt(target.transform.position);
             this.PlayAnimation(eState.Attack);
         }
@@ -165,7 +188,7 @@ namespace GameMain
 
             yield return new WaitForSeconds(this.impactTime);
 
-            monsterController.HitDamage(this.atk);
+            target.HitDamage(this.atk);
 
             yield return new WaitForSeconds(animStateInfo.length - this.impactTime);
             this.PlayAnimation(eState.Idle);
@@ -175,6 +198,44 @@ namespace GameMain
         {
             Gizmos.color = Color.yellow;
             GizmosExtensions.DrawWireArc(this.transform.position, this.transform.forward, 360, this.radius);
+        }
+
+        public void UnEquipWeapon()
+        {
+            Debug.LogFormat("자식의 수: {0}", this.weaponTrans.childCount);
+            if (this.weaponTrans.childCount == 0)
+            {
+                Debug.Log("착용 중인 무기가 없습니다");
+            }
+            else
+            {
+                Debug.Log("착용 중인 무기가 있습니다");
+                Transform child = this.weaponTrans.GetChild(0);
+                Destroy(child.gameObject);
+            }
+        }
+        public void UnEquipShield()
+        {
+            if (this.shieldTrans.childCount == 0)
+            {
+                Debug.Log("착용 중인 방패가 없습니다.");
+            }
+            else
+            {
+                Debug.Log("착용 중인 방패가 있습니다.");
+                Transform child = this.shieldTrans.GetChild(0);
+                Destroy(child.gameObject);
+            }
+        }
+
+        public bool HasWeapon()
+        {
+            return this.weaponTrans.childCount > 0;
+        }
+
+        public bool HasShield()
+        {
+            return this.shieldTrans.childCount > 0;
         }
     }
 }

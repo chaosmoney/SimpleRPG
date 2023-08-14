@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Monster
   - Ground
+  - Hero
+  - RightHand
   layers:
   - Default
   - TransparentFX
